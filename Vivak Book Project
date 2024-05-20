@@ -1,0 +1,676 @@
+#############################################################################################################
+-- DATA CLEANING AND MANIPULATION 
+#############################################################################################################
+
+-- Export the data into vivakdump for cleaning and manipulation 
+-- notice that locations from the hr data and locations from 
+-- the organization structure xlsv file have the same record with 
+-- location_id
+ 
+CREATE SCHEMA IF NOT EXISTS vivakdump;
+
+USE vivakdump;
+
+CREATE TABLE vivakdump.countries
+SELECT * FROM hr.countries;
+
+CREATE TABLE vivakdump.locations
+SELECT * FROM hr.locations;
+
+CREATE TABLE vivakdump.regions
+SELECT * FROM hr.regions;
+
+SELECT * FROM employees;
+SELECT * FROM regions;
+
+-- Correcting the mistake made by the employee by
+-- changing the department_id to manager_id
+ALTER TABLE employees
+	CHANGE COLUMN department_id location_id INT;
+SELECT * FROM employees;
+
+-- Updating the location_id in the employee table to 
+-- match the location_id in the locations table
+UPDATE employees
+	SET location_id = CASE location_id
+		WHEN 1 THEN 1400
+        WHEN 2 THEN 1500
+        WHEN 3 THEN 1700
+        WHEN 4 THEN 1800
+        WHEN 5 THEN 2400
+        WHEN 6 THEN 2500
+        WHEN 7 THEN 2700
+        ELSE location_id
+	END;
+
+SELECT * FROM employees;
+
+SELECT * FROM locations_ho;
+
+SELECT * FROM job;
+# change the name of orgstructure to match the name of the ID 
+# i.e job
+ALTER TABLE orgstructure
+	RENAME  job;
+    
+SELECT * FROM vivakdump.job;
+
+ SELECT * FROM departments;  
+
+ /*
+ selecting all the location_id and full name 
+that share a commonality with location_1400
+and all the executives are the first data in the employees table
+ create a manager_ID in each table 
+ make the employee_id be the manager_id for each of the employee
+ combine all the locations using union_id into a table called 
+ location_combined
+ used the location combine add the manager_id for each employee
+ */
+ 
+
+SELECT location_id, concat(first_name, ' ', last_name) AS FULL_NAME 
+	FROM employees 
+	WHERE location_id = 1400 	
+    limit 13;
+-- creating & updating the manager_id in location_1400_ho
+ALTER TABLE location_1400_ho
+	ADD COLUMN manager_id INT;
+
+UPDATE location_1400_ho as l 
+	LEFT JOIN (SELECT employee_id, 
+    concat(first_name, ' ', last_name) AS FULL_NAME 
+    from employees 
+    WHERE location_id = 1400 
+    limit 13) AS e ON l.`Full Name` = e.FULL_NAME
+    SET l.manager_id = e.employee_id;
+  
+  -- creating & updating the manager_id in location_1500
+ALTER TABLE location_1500
+	ADD COLUMN manager_id INT;
+
+UPDATE location_1500 as l 
+	LEFT JOIN (SELECT employee_id, 
+    concat(first_name, ' ', last_name) AS FULL_NAME 
+    from employees 
+    WHERE location_id = 1500 
+    limit 12) AS e ON l.`Full Name` = e.FULL_NAME
+    SET l.manager_id = e.employee_id;
+	
+-- creating & updating the manager_id in location_1700
+ALTER TABLE location_1700
+	ADD COLUMN manager_id INT;
+
+UPDATE location_1700 as l 
+	LEFT JOIN (SELECT employee_id, 
+    concat(first_name, ' ', last_name) AS FULL_NAME 
+    from employees 
+    WHERE location_id = 1700 
+    limit 12) AS e ON l.`Full Name` = e.FULL_NAME
+    SET l.manager_id = e.employee_id;
+
+-- creating & updating the manager_id in location_1800
+ALTER TABLE location_1800
+	ADD COLUMN manager_id INT;
+
+UPDATE location_1800 as l 
+	LEFT JOIN (SELECT employee_id, 
+    concat(first_name, ' ', last_name) AS FULL_NAME 
+    from employees 
+    WHERE location_id = 1800 
+    limit 12) AS e ON l.`Full Name` = e.FULL_NAME
+    SET l.manager_id = e.employee_id;
+
+-- creating & updating the manager_id in location_2400
+ALTER TABLE location_2400
+	ADD COLUMN manager_id INT;
+
+UPDATE location_2400 as l 
+	LEFT JOIN (SELECT employee_id, 
+    concat(first_name, ' ', last_name) AS FULL_NAME 
+    from employees 
+    WHERE location_id = 2400 
+    limit 12) AS e ON l.`Full Name` = e.FULL_NAME
+    SET l.manager_id = e.employee_id;
+
+-- creating & updating the manager_id in location_2500
+ALTER TABLE location_2500
+	ADD COLUMN manager_id INT;
+
+UPDATE location_2500 as l 
+	LEFT JOIN (SELECT employee_id, 
+    concat(first_name, ' ', last_name) AS FULL_NAME 
+    from employees 
+    WHERE location_id = 2500 
+    limit 12) AS e ON l.`Full Name` = e.FULL_NAME
+    SET l.manager_id = e.employee_id;
+
+-- creating & updating the manager_id in location_2700
+ALTER TABLE location_2700
+	ADD COLUMN manager_id INT;
+
+UPDATE location_2700 as l 
+	LEFT JOIN (SELECT employee_id, 
+    concat(first_name, ' ', last_name) AS FULL_NAME 
+    from employees 
+    WHERE location_id = 2700 
+    limit 12) AS e ON l.`Full Name` = e.FULL_NAME
+    SET l.manager_id = e.employee_id;
+
+DROP TABLE IF EXISTS location_combined;
+
+-- creating the table location_combined
+CREATE TABLE `location_combined` (
+  `location_id` int,
+  `job_id` int,
+  `job_title` text,
+  `Full Name` text,
+  `manager_id` int,
+  PRIMARY KEY (`location_id`, `job_id`)
+);
+
+-- updating the all the location records into location_combined using union all
+INSERT INTO location_combined (location_id, job_id, job_title, `Full Name`, manager_id)
+SELECT 1400, job_id, job_title, `Full Name`, manager_id FROM location_1400_ho
+UNION ALL
+SELECT 1500, job_id, job_title, `Full Name`, `manager_id` FROM location_1500
+UNION ALL
+SELECT 1700, job_id, job_title, `Full Name`, `manager_id` FROM location_1700
+UNION ALL
+SELECT 1800, job_id, job_title, `Full Name`, `manager_id` FROM location_1800
+UNION ALL
+SELECT 2400, job_id, job_title, `Full Name`, `manager_id` FROM location_2400
+UNION ALL
+SELECT 2500, job_id, job_title, `Full Name`, `manager_id` FROM location_2500
+UNION ALL
+SELECT 2700, job_id, job_title, `Full Name`, `manager_id` FROM location_2700;
+
+SELECT * FROM location_combined;
+
+-- updating the manager_id using location_combined
+UPDATE employees as e
+	INNER JOIN 
+		(SELECT location_id,
+					job_id,
+                    manager_id
+                    FROM location_combined)
+	AS lc USING(location_id, job_id)
+SET e.manager_id = lc.manager_id;
+
+/*
+As specified all primary keys must be INT
+change country_id to country_code 
+create a column in country called country_id 
+Also change the country_id in locations to 
+its integer digit
+ */
+ 
+ALTER TABLE countries
+	CHANGE COLUMN country_id country_code VARCHAR(2);
+
+ALTER TABLE countries
+	ADD COLUMN country_id INT AUTO_INCREMENT PRIMARY KEY ;
+
+SELECT country_id, country_code 
+	FROM countries 
+    WHERE country_code IN ('US', 'CA', 'UK', 'DE');
+
+-- changing the country_id to integer digit
+UPDATE locations
+SET country_id = 
+    CASE country_id
+        WHEN 'US' THEN 5
+        WHEN 'CA' THEN 8
+        WHEN 'UK' THEN 22
+        WHEN 'DE' THEN 23
+        ELSE country_id  
+    END;
+
+-- change the data typeof country_id to integer
+ALTER TABLE locations
+	MODIFY country_id INT;
+
+-- Add column department_id to job; it will serve as the foreign key 
+-- to department table and also replace the department name.
+
+ALTER TABLE job
+	ADD department_id INT;
+
+UPDATE job as j
+	INNER JOIN 
+		(SELECT department_name,
+					department_id
+                    FROM departments)
+	AS d USING(department_name)
+SET j.department_id = d.department_id;
+use vivakdump;
+use vivakhr;
+SELECT * FROM employees;	
+SELECT * FROM locations;
+SELECT * FROM departments;
+SELECT * FROM dependent;
+SELECT * FROM job;
+SELECT * FROM countries;
+SELECT * FROM regions;
+
+/*
+Looking at the tables; the job table, rports_to column the president is blank
+the president reports to himself. so manually updating the president with 1
+will solve the missingness
+
+*/
+
+UPDATE job
+	SET reports_to = 1
+		WHERE job_id = 1;
+SELECT * FROM job;
+
+
+############ VIVAK DESIGNS ##########
+
+#DROP SCHEMA VivaKHR;
+
+/*
+	As specified all primary and foreign keys are intergers
+    Text based data are varchar with the range of 12 to 50 characters
+    relationship was set to child and spouse as these were the distinct 
+    characteristics from the original. 
+    ALL foreign keys were set to delete on cascade to give priority protection 
+    to the parent database. and also for data consistency for when the parent record
+    are deleted or updated, it is also applied to the child record 
+
+
+
+*/
+CREATE SCHEMA IF NOT EXISTS VivaKHR;
+
+USE vivakHR;
+
+-- -----------------------------------------------------
+-- Table `VivaKHR`.`region`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS region (
+  `region_id` INT AUTO_INCREMENT,
+  `region_name` VARCHAR(50) NULL,
+  PRIMARY KEY (`region_id`));
+
+-- -----------------------------------------------------
+-- Table `VivaKHR`.`department`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS department (
+  `department_id` INT AUTO_INCREMENT,
+  `department_name` VARCHAR(45) NOT NULL,
+  PRIMARY KEY (`department_id`));
+
+-- -----------------------------------------------------
+-- Table `VivaKHR`.`country`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS country (
+  `country_id` INT AUTO_INCREMENT,
+  `region_id` INT,
+  `country_name` VARCHAR(50) NOT NULL,
+  PRIMARY KEY (`country_id`),
+  INDEX `fk_country_region_idx` (`region_id` ASC) VISIBLE,
+  CONSTRAINT `fk_country_region`
+    FOREIGN KEY (`region_id`)
+    REFERENCES `region` (`region_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE);
+
+
+-- -----------------------------------------------------
+-- Table `VivaKHR`.`location`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS location (
+  `location_id` INT,
+  `country_id` INT,
+  `street_address` VARCHAR(100),
+  `postal_code` VARCHAR(12) NULL,
+  `city` VARCHAR(40),
+  `state_province` VARCHAR(30),
+  PRIMARY KEY (`location_id`),
+  INDEX `fk_location_country1_idx` (`country_id` ASC) VISIBLE,
+  CONSTRAINT `fk_location_country1`
+    FOREIGN KEY (`country_id`)
+    REFERENCES `country` (`country_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE);
+
+
+-- -----------------------------------------------------
+-- Table `VivaKHR`.`job`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS job (
+  `job_id` INT AUTO_INCREMENT,
+  `department_id` INT,
+  `reports_to` INT,
+  `job_title` VARCHAR(45) NOT NULL,
+  `min_salary` DOUBLE DEFAULT NULL,
+  `max_salary` DOUBLE DEFAULT NULL,
+  PRIMARY KEY (`job_id`),
+  INDEX `fk_job_department1_idx` (`department_id` ASC) VISIBLE,
+  INDEX `fk_job_job1_idx` (`reports_to` ASC) VISIBLE,
+  CONSTRAINT `fk_job_department1`
+    FOREIGN KEY (`department_id`)
+    REFERENCES `department` (`department_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+  CONSTRAINT `fk_job_job1`
+    FOREIGN KEY (`reports_to`)
+    REFERENCES `job` (`job_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE);
+
+
+-- -----------------------------------------------------
+-- Table `VivaKHR`.`employee`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `employee` (
+  `employee_id` INT,
+  `location_id` INT,
+  `manager_id` INT DEFAULT NULL,
+  `first_name` VARCHAR(45) NOT NULL,
+  `last_name` VARCHAR(45) NOT NULL,
+  `email` VARCHAR(50) NOT NULL,
+  `phone_number` VARCHAR(20) DEFAULT ' ',
+  `salary` DOUBLE NOT NULL,
+  `hire_date` DATE DEFAULT NULL,
+  `job_id` INT,
+  `reports_to` INT,
+  `experience_at_vivaK` INT DEFAULT NULL,
+  `last_performance_rating` INT DEFAULT NULL,
+  `salary_after_increment` DOUBLE DEFAULT NULL,
+  `annual_dependent_benefit` DOUBLE NULL,
+  PRIMARY KEY (`employee_id`),
+  INDEX `fk_employee_manager1_idx` (`manager_id` ASC) VISIBLE,
+  INDEX `fk_employee_location1_idx` (`location_id` ASC) VISIBLE,
+  INDEX `fk_employee_employee1_idx` (`reports_to` ASC) VISIBLE,
+  INDEX `fk_employee_job1_idx` (`job_id` ASC) VISIBLE,
+  UNIQUE INDEX `email_UNIQUE` (`email` ASC) VISIBLE,
+  UNIQUE INDEX `phone_number_UNIQUE` (`phone_number` ASC) VISIBLE,
+  CONSTRAINT `fk_employee_manager1`
+    FOREIGN KEY (`manager_id`)
+    REFERENCES `employee` (`employee_id`)
+    ON DELETE SET NULL
+    ON UPDATE SET NULL,
+  CONSTRAINT `fk_employee_location1`
+    FOREIGN KEY (`location_id`)
+    REFERENCES `location` (`location_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+  CONSTRAINT `fk_employee_employee1`
+    FOREIGN KEY (`reports_to`)
+    REFERENCES `employee` (`employee_id`)
+    ON DELETE SET NULL
+    ON UPDATE SET NULL,
+  CONSTRAINT `fk_employee_job1`
+    FOREIGN KEY (`job_id`)
+    REFERENCES `job` (`job_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE);
+
+
+-- -----------------------------------------------------
+-- Table `VivaKHR`.`dependent`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS dependent (
+  `dependent_id` INT AUTO_INCREMENT,
+  `first_name` VARCHAR(40),
+  `last_name` VARCHAR(40),
+  `relationship` SET ('Child', 'Spouse') DEFAULT NULL,
+  `employee_id` INT,
+  PRIMARY KEY (`dependent_id`),
+  INDEX `fk_dependent_employee1_idx` (`employee_id` ASC) VISIBLE,
+  CONSTRAINT `fk_dependent_employee1`
+    FOREIGN KEY (`employee_id`)
+    REFERENCES `employee` (`employee_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE);
+
+
+
+########################################################################
+-- TASK 2 and 3 (Question 1 &2) 
+#########################################################################
+USE vivakhr;
+/*
+use the data in the vivakdump to populate the data in vivakhr
+If a duplicate key error occurs during the insertion 
+(e.g., due to violating a unique constraint or primary key constraint),
+ the INSERT IGNORE statement ignores the offending row and 
+ continues with the next row, if any.
+*/
+-- populating region
+INSERT IGNORE INTO vivakhr.region
+		(region_id, region_name)
+	SELECT region_id, region_name
+	FROM vivakdump.regions;
+-- populating country
+INSERT IGNORE INTO vivakhr.country
+		(country_id, region_id, country_name)
+	SELECT country_id, region_id, country_name
+	FROM vivakdump.countries;
+-- populating location
+INSERT IGNORE INTO vivakhr.location
+		(location_id, country_id, street_address,
+		postal_code, city, state_province)
+	SELECT location_id, country_id, street_address,
+			postal_code, city, state_province
+	FROM vivakdump.locations;
+-- populating department
+INSERT IGNORE INTO vivakhr.department
+		(department_id, department_name)
+	SELECT department_id, department_name
+	FROM vivakdump.departments;
+-- populating job
+INSERT IGNORE INTO vivakhr.job
+    (department_id,  job_title, Reports_to, min_salary, max_salary)
+SELECT department_id,  job_title, Reports_to, min_salary, max_salary
+FROM vivakdump.job;
+-- populating employee
+/*
+looking at the employee data from vivakdump 
+the phone_number column was not in the specified format
+and there were two different formats with the separator . and -
+so the replace is used twice to ensure that it is implemented
+if the phone_number falls into any of the categories
+concat to join substring as the separator for the format to be in 
++000-000-0000
+and the date_format is used to ensure the format is in YYYY-MM-DD  
+*/
+SET foreign_key_checks = 0; # temporarily disables foreign key checks to eneable insertion 
+INSERT IGNORE INTO vivakhr.employee
+	(employee_id, location_id, manager_id, first_name, last_name,
+    email, phone_number, salary, hire_date, job_id)
+SELECT employee_id, location_id, manager_id, first_name, last_name,
+    email, IFNULL(CONCAT('+', 
+           SUBSTRING(REPLACE(REPLACE(phone_number, '.', ''), '-', ''), 1, 3), '-', 
+           SUBSTRING(REPLACE(REPLACE(phone_number, '.', ''), '-', ''), 4, 3), '-', 
+           SUBSTRING(REPLACE(REPLACE(phone_number, '.', ''), '-', ''), 7, 4), ''), 
+           'Not specified') AS phone_number,
+           salary, date_format(hire_date, '%Y-%m-%d'),
+           job_id
+FROM vivakdump.employees;
+SET foreign_key_checks = 1; # enables foreign key check after insertion 
+
+SELECT * FROM employee;
+-- populating dependent table
+-- 82 records were found with errors in employees_id
+-- and duplicates
+INSERT IGNORE INTO vivakhr.dependent
+    (first_name, last_name, relationship, employee_id)
+SELECT first_name, last_name, relationship, employee_id
+FROM vivakdump.dependent;
+SELECT * FROM dependent;
+######### Checking for Duplicates in each column##########
+
+SELECT region_name, COUNT(*) AS duplicates_count
+FROM region
+GROUP BY region_name
+HAVING duplicates_count > 1;
+
+SELECT department_name, COUNT(*) AS duplicates_count
+FROM department
+GROUP BY department_name
+HAVING duplicates_count > 1;
+
+SELECT country_name, region_id, COUNT(*) AS duplicates_count
+FROM country
+GROUP BY country_name, region_id
+HAVING duplicates_count > 1;
+
+SELECT location_id, COUNT(*) AS duplicates_count
+FROM location
+GROUP BY location_id
+HAVING duplicates_count > 1;
+
+SELECT job_title, Reports_to, min_salary,
+	max_salary, COUNT(*) AS duplicates_count
+FROM job
+GROUP BY job_title, Reports_to, min_salary, max_salary
+HAVING duplicates_count > 1;
+
+SELECT first_name, last_name, email, phone_number, 
+	salary, hire_date, job_id, COUNT(*) AS duplicates_count
+FROM employee
+GROUP BY first_name, last_name, email, phone_number, 
+			salary, hire_date, job_id
+HAVING duplicates_count > 1;
+
+SELECT first_name, last_name, relationship, employee_id, 
+	COUNT(*) AS duplicates_count
+FROM dependent
+GROUP BY first_name, last_name, relationship, employee_id
+HAVING duplicates_count > 1;
+
+# it shows that the duplicates were null 
+
+### FIlling up the reports_to column using the job_id as the 
+# the key to join the job_id and reports_to 
+# a merge select is used to join the tables 
+
+UPDATE employee as e 
+	LEFT JOIN (SELECT e.employee_id,
+                e.job_id,
+                j.reports_to
+FROM employee AS e
+LEFT JOIN job AS j USING(job_id)) AS emp USING (job_id)
+SET e.reports_to = emp.employee_id;
+
+SELECT * FROM employee;
+
+############################################
+
+# checked online to get the correct postal_code and address
+#then updated it in the respective fields
+UPDATE location
+	SET postal_code = 'EC4 9AY', state_province = 'London'
+		WHERE location_id = 2400;
+
+SELECT * FROM location;
+
+# the average salary grouped by job_id between the employees is used 
+# to populate the employee salary for employees with salary values as zero.
+
+SELECT * from job;
+SELECT * from employee;
+
+SELECT job_id, round(AVG(salary),2) FROM employee GROUP BY job_id;
+
+# update the where salary = 0 for each job_id with the avg_salary
+UPDATE employee AS e
+	LEFT JOIN (SELECT job_id, round(AVG(salary),2) AS AVG_Salary
+					FROM employee
+                    GROUP BY job_id) AS j USING (job_id)
+	SET e.salary = j.AVG_Salary
+    WHERE e.salary = 0;
+
+SELECT * FROM employee where salary = 0;
+
+
+#####################################################################################
+# n04 q.1
+# use datediff to get the number of days between the current date
+# using the now() function and the hire_date then divide by 30 to get the number of months
+#  and round forwhole number as months cannot be represented using floating point
+SELECT * from employee;
+#SELECT ROUND(DATEDIFF(NOW(), hire_date)/30) from employee;
+UPDATE employee
+	SET experience_at_VivaK = ROUND(DATEDIFF(NOW(), hire_date)/30);
+
+# n04 q.2
+# generating random between 0 and 10 
+# floor round down to the nearest integer
+UPDATE employee
+	SET last_performance_rating = FLOOR(RAND() * 11);
+
+SELECT * FROM employee;
+
+/* 
+Using the range and specification according to the salary_after_increment
+then if the value for salary_after_increment is greater than the max_salary for the job then 
+the employee gets the max_salary
+*/
+-- calculate and update according to the specification
+UPDATE employee as e 
+SET e.salary_after_increment = round(
+    CASE
+		WHEN e.last_performance_rating >= 9 
+        THEN e.salary * (1 + (0.01 * e.experience_at_vivaK) + 0.15)  
+		WHEN e.last_performance_rating >= 8 AND e.last_performance_rating < 7 
+        THEN e.salary * (1 + (0.01 * e.experience_at_vivaK) + 0.12)  
+		WHEN e.last_performance_rating >= 7 AND e.last_performance_rating < 6 
+        THEN e.salary * (1 + (0.01 * e.experience_at_vivaK) + 0.10)  
+		WHEN e.last_performance_rating >= 6 AND e.last_performance_rating < 5 
+        THEN e.salary * (1 + (0.01 * e.experience_at_vivaK) + 0.08) 
+		WHEN e.last_performance_rating >= 5 
+        THEN e.salary * (1 + (0.01 * e.experience_at_vivaK) + 0.05) 
+		ELSE e.salary * (1 + (0.01 * e.experience_at_vivaK) + 0.02) 
+	END,2);
+
+SELECT * FROM job;
+SELECT * FROM employee; 
+-- Adds the restrictions for salary_after_increment that is greater than max_salary
+UPDATE employee as e 
+	JOIN (SELECT job_id, max_salary FROM job) 
+    AS j USING(job_id)
+SET e.salary_after_increment = j.max_salary
+WHERE e.salary_after_increment > j.max_salary;
+
+SELECT * FROM employee;
+
+# get the count of each employee dependent 
+# then use it in calculating the amount annually receied by each employee 
+# according to their title.
+
+UPDATE employee e
+	LEFT JOIN (SELECT COUNT(DISTINCT d.dependent_id) AS dep_count, 
+					e.employee_id 
+				FROM dependent AS d
+				RIGHT JOIN employee AS e USING(employee_id)
+				GROUP BY employee_id) AS d USING(employee_id)
+	LEFT JOIN job AS j USING(job_id)
+	SET e.annual_dependent_benefit = ROUND(
+    CASE 
+        WHEN j.department_id = 9 
+        THEN d.dep_count * 0.2 * e.salary * 12
+        WHEN j.job_title like '%Manager%' 
+        THEN d.dep_count * 0.15 * e.salary * 12
+        ELSE d.dep_count * 0.05 * e.salary * 12
+    END, 2);
+SELECT * FROM employee WHERE annual_dependent_benefit = 0;
+# the substring split the email into two parts
+# and extracts the part of the email before @
+# concat is used to join @vivak.com to the extracted part
+# there by updating the email in the format @vivak.com 
+UPDATE employee
+	SET email = CONCAT(SUBSTRING_INDEX(email, '@', 1), '@vivaK.com');
+
+SELECT employee_id, first_name,
+last_name, email
+FROM employee;
+
+
+
+
+
