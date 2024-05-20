@@ -1,0 +1,388 @@
+import copy
+import nltk
+import pandas as pd
+import matplotlib.pyplot as plt
+import wordcloud
+import string
+from matplotlib.colors import ListedColormap
+nltk.download('stopwords')
+from nltk.corpus import stopwords
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from wordcloud import WordCloud
+import plotly.express as px
+import re
+from nltk import stem
+import collections
+
+"""
+the book_data is not necessary for the analysis as all the necessary
+columns are contained in the books_rating so a merge will not be used and
+it will be loaded as required
+ """
+
+# books_data = pd.read_csv("books_data.csv")
+#print(books_data)
+books_rating = pd.read_csv("Books_rating.csv")
+#print(books_rating)
+df_books_rating = pd.DataFrame(books_rating)
+#print(df_books_rating)
+# df_books_data = pd.DataFrame(books_data)
+#print(df_books_data)
+
+# print("Data shape:", df_books_data.shape)
+# print("Column names:", df_books_data.columns)
+# print("Data types:\n", df_books_data.dtypes)
+# print("First few rows:\n", df_books_data.head())
+# print("Summary statistics:\n", df_books_data.describe(include='all'))
+#
+# # Identify missing values
+# missing_values = df_books_data['ratingsCount'].isnull().sum()
+
+# print("The sum of missing values are: ", missing_values)
+# Remove rows with missing values
+# data_cleaned = df_books_data.dropna(subset=['ratingsCount'])
+# print("Data shape:", data_cleaned.shape)
+
+print()
+print("Data shape:", df_books_rating.shape)
+print("Column names:", df_books_rating.columns)
+print("Data types:\n", df_books_rating.dtypes)
+print("First few rows:\n", df_books_rating.head())
+print("Summary statistics:\n", df_books_rating.describe(include='all'))
+
+
+
+missing_values = df_books_rating.isnull().sum()
+print("The sum of missing values are: ", missing_values)
+# Removing rows with missing values in the target columns
+data_cleaned = df_books_rating.dropna(subset=['Title', 'review/summary', 'review/text'])
+print("Data shape:", data_cleaned.shape)
+# showing the removal of the missing value rows
+missing_values_nxt = data_cleaned.isnull().sum()
+print("The sum of missing values are: ", missing_values_nxt)
+
+df_books_rating = data_cleaned
+#Showing the duplicated columns
+duplicates = df_books_rating[df_books_rating.duplicated(keep=False)]
+
+# Print duplicates
+print("Duplicates:")
+print(duplicates.head(20))
+# counting and displaying the duplicated columns
+dup_count = df_books_rating.duplicated().sum()
+
+print("the sum of duplicate is", dup_count)
+# dropping the duplicated columns
+# duplicated occurred due to error in machine and imputation of the data
+cleaned_data = df_books_rating.drop_duplicates(keep='first')
+
+df_books_rating = cleaned_data
+
+# Print the size of the cleaned dataset
+print("Size of cleaned dataset:", df_books_rating.shape)
+
+# creating a copy of the dataset
+df_books_rating_original = copy.deepcopy(df_books_rating)
+
+# creating the sample size
+class_values = df_books_rating['review/score'].unique()
+# Determine class distribution
+class_distribution = df_books_rating['review/score'].value_counts()
+# Calculate sample size of 750000
+sample_size = 750000
+# Calculate class sizes
+class_sizes = [int(sample_size / len(class_values))] * len(class_values) # Convert to integer
+# Create balanced sample empty dataframe
+balanced_sample = pd.DataFrame()
+# using a loop to create a balanced sample for each review score
+for class_label in class_values:
+    class_sample = df_books_rating[df_books_rating['review/score'] == class_label].sample(class_sizes[class_values.tolist().index(class_label)], replace=False)
+    #setting the replace as false to avoid duplicates
+    balanced_sample = pd.concat([balanced_sample, class_sample])
+# Reset index
+balanced_sample.reset_index(drop=True, inplace=True)
+print(balanced_sample.head(10))
+print(balanced_sample.shape)
+
+# selecting the non NaN and necessary columns
+balanced_sample = balanced_sample[['Title', 'review/helpfulness', 'review/score', 'review/summary', 'review/text']]
+
+# renaming the columns
+balanced_sample.columns = ['Title', 'review_helpfulness', 'review_score', 'review_summary', 'review_text']
+
+print(balanced_sample.columns)
+# placing the cleaned and transformed dataframe in a csv file to be used for analysis
+balanced_sample.to_csv('new_books_rating.csv', index=False)
+
+
+###############################################################################################################
+
+color_map = ListedColormap(['orange', 'green', 'red', 'cyan', 'pink', 'yellow', 'white'])
+cloud = WordCloud(background_color='black', colormap=color_map, stopwords=stops, max_words=100)
+cloud.generate(str(books_rating['review/text']))
+plt.imshow(cloud)
+plt.show()
+
+
+
+books_rating.info()
+
+fig = px.histogram(books_rating, x='review/score')
+fig.update_traces(marker_color='cyan',
+                  marker_line_color='blue',
+                  marker_line_width=3)
+fig.update_layout(title_text='Rating Frequency')
+fig.show()
+#
+new_books_rating = pd.read_csv('new_books_rating.csv')
+new_books_rating.info()
+new_books_rating.isna().sum()
+
+fig2 = px.histogram(new_books_rating, x='review_score')
+fig2.update_traces(marker_color='orange',
+                   marker_line_color='black',
+                   marker_line_width=5)
+fig2.update_layout(title_text='Rating Frequency')
+fig2.show()
+
+
+stops = stopwords.words('english')
+color_map = ListedColormap(['orange', 'green', 'red', 'cyan', 'pink', 'yellow', 'white'])
+cloud = WordCloud(background_color='black', colormap=color_map, stopwords=stops, max_words=100)
+cloud.generate(str(new_books_rating['review_text']))
+plt.imshow(cloud)
+plt.show()
+
+
+def tokenize(doc):
+    text = doc.lower().strip()
+    text = re.sub(f'[{string.punctuation}]', " ", text)
+    tokens = re.findall(r'\b\w+\b', text)
+    return tokens
+
+def remove_stopwords(token_list):
+    stops = set(stopwords.words('english'))
+    stops.update({'would', 'could', 'should', 'i', 'we', 'she', 'he', 'it'})
+    tokensFiltered = [token for token in token_list if token not in stops]
+    return tokensFiltered
+
+
+def tokenize_withstemming(doc):
+    tokens = tokenize(doc)
+    porterstem = stem.PorterStemmer()
+    stemTokens = [porterstem.stem(x) for x in tokens]
+    return stemTokens
+
+
+def get_token_counts(token_list):
+    token_counter = collections.Counter([txt.lower() for txt in token_list])
+
+    return dict(sorted(token_counter.items(), key=lambda item: item[1], reverse=True))
+
+
+def calculate_word_frequencies(text, stemmed=False, withoutStopWords=False):
+    if stemmed:
+        tokens = tokenize_withstemming(text)
+    else:
+        tokens = tokenize(text)
+
+    final_tokens = []
+    if withoutStopWords:
+        final_tokens = remove_stopwords(tokens)
+
+    tkn_count_dict = get_token_counts(final_tokens)
+    return tkn_count_dict
+
+
+def generateWordCloud(frequencies, path):
+    color_map = ListedColormap(['orange', 'green', 'red', 'cyan', 'pink', 'yellow', 'white'])
+    cloud = wordcloud.WordCloud(colormap=color_map, max_words=100)
+    cloud.generate_from_frequencies(frequencies)
+    cloud.to_file(path)
+    plt.interactive(True)
+    plt.imshow(cloud, interpolation='bilinear')
+    plt.axis('off')
+    plt.title('Word Cloud: ' + path, fontweight="bold")
+    plt.show()
+
+
+def generate_special_word_clouds(reviews, sentimentType='all'):
+    corpus_txt = ""
+    if sentimentType.lower() == 'all':
+        corpus_txt = " ".join(x for x in reviews['review_text'])
+    else:
+        review_text_sub = reviews[reviews['sentiment'] == sentimentType]
+        corpus_txt = " ".join(x for x in review_text_sub['review_text'])
+
+    frequencyDict = calculate_word_frequencies(corpus_txt, False, True)
+
+    filename = ""
+    match sentimentType.lower():
+        case 'all':
+            filename = "AllBookReviews.png"
+        case 'positive':
+            filename = "PositiveBookReviews.png"
+        case 'negative':
+            filename = "NegativeBookReviews.png"
+        case _:
+            filename = "OtherBookReviews.png"
+
+    generateWordCloud(frequencyDict, filename)
+
+
+def analyzeSentiments(ratings):
+    ratings['sentiment'] = ['positive' if score > 3 else 'negative' if score < 3 else 'neutral' for score in ratings['review_score']]
+    generate_special_word_clouds(ratings, 'all')
+    generate_special_word_clouds(ratings, 'positive')
+    generate_special_word_clouds(ratings, 'negative')
+
+
+analyzeSentiments(new_books_rating)
+
+
+def remove_punc_stopwords(text):
+    text_tokens = tokenize(text)
+    text_tokens = remove_stopwords(text_tokens)
+    text_tokens = [word for word in text_tokens if not any(char.isdigit() for char in word)]
+    return " ".join(text_tokens)
+
+def runTextPredictions(reviews):
+    """ Remove punctuations and stopwords from the text data in ReviewText and Title"""
+    reviews['Title'] = [str(x) for x in reviews['Title']]
+    reviews['review_text'] = [str(x) for x in reviews['review_text']]
+    reviews['review_summary'] = [str(x) for x in reviews['review_summary']]
+    reviews['review_helpfulness'] = [str(x) for x in reviews['review_helpfulness']]
+
+    reviews_book = copy.deepcopy(reviews)
+
+    # The following applies remove_punc_stopwords function to each value in the given column.
+    # The result is a column with lower case values
+    # that have no punctuations, no stop words,
+    reviews['Title'] = reviews['Title'].apply(remove_punc_stopwords)
+    reviews['review_text'] = reviews['review_text'].apply(remove_punc_stopwords)
+    reviews['review_summary'] = reviews['review_summary'].apply(remove_punc_stopwords)
+    reviews['review_helpfulness'] = reviews['review_helpfulness'].apply(remove_punc_stopwords)
+
+    """ Add a new variable called sentiment; if Rating is greater than 3, then sentiment = 1, else sentiment = -1 """
+    reviews['sentiment_value'] = [1 if x >= 3 else -1 for x in reviews.review_score]
+
+    positive_reviews = reviews[reviews['sentiment_value'] == 1]
+    negative_reviews = reviews[reviews['sentiment_value'] == -1]
+
+    train_positive, test_positive = train_test_split(positive_reviews, test_size=0.15)
+    train_negative, test_negative = train_test_split(negative_reviews, test_size=0.15)
+
+    col_sel = ['review_summary', 'review_score', 'Title', 'sentiment_value']
+
+    reviews_sub_train = pd.concat([train_positive[col_sel], train_negative[col_sel]], ignore_index=True)
+    reviews_sub_test = pd.concat([test_positive[col_sel], test_negative[col_sel]], ignore_index=True)
+
+    print(reviews_sub_train.head())
+    print(reviews_sub_test.head())
+
+    vecto = TfidfVectorizer(token_pattern=r'\b\w+\b')
+    train_matrix = vecto.fit_transform(reviews_sub_train['review_summary'] + '' + reviews_sub_train['Title'])
+    test_matrix = vecto.transform(reviews_sub_test['review_summary'] + '' + reviews_sub_test['Title'])
+
+    # simple logistic regression
+    lr = LogisticRegression(max_iter=1000)
+
+    X_train = train_matrix
+    print(X_train)
+    X_test = test_matrix
+    y_train = reviews_sub_train['sentiment_value']
+    y_test = reviews_sub_test['sentiment_value']
+
+    print()
+    """ Generate the predictions for the test dataset"""
+    predictions = lr.predict(X_test)
+    reviews_sub_test['predictions'] = predictions
+    print(reviews_sub_test.head(30))
+
+    print()
+    """Calculate the prediction accuracy"""
+    reviews_sub_test['match'] = (
+            reviews_sub_test['sentiment_value'] == reviews_sub_test['predictions'])
+
+    print("")
+    print("Prediction Accuracy:")
+    print(sum(reviews_sub_test['match']) / len(reviews_sub_test))
+
+    ## Multinomial Logisitic Regression Model
+
+    # Group the data by review_score
+    grouped_data = reviews.groupby('review_score')
+
+    # Create empty DataFrames for training and testing data
+    train_data = pd.DataFrame(columns=reviews.columns)
+    test_data = pd.DataFrame(columns=reviews.columns)
+
+    # Iterate over each review_score group
+    for _, group in grouped_data:
+        # Split the group into training and testing sets
+        group_train, group_test = train_test_split(group, test_size=0.2)
+
+        # Append the group samples to the respective DataFrames
+        train_data = pd.concat([train_data, group_train])
+        test_data = pd.concat([test_data, group_test])
+
+    # Reset the indices of the DataFrames
+    train_data.reset_index(drop=True, inplace=True)
+    test_data.reset_index(drop=True, inplace=True)
+
+    # Verify the counts of review_score in the training and testing sets
+    print(train_data['review_score'].value_counts())
+    print(test_data['review_score'].value_counts())
+
+    vecto = TfidfVectorizer(token_pattern=r'\b\w+\b')
+    train_matrix = vecto.fit_transform(train_data['review_summary'] + '' + train_data['Title'])
+    test_matrix = vecto.transform(test_data['review_summary'] + '' + test_data['Title'])
+
+    ## Multinomial Logisitic Regression Model
+    lr2 = LogisticRegression(max_iter=1000)
+    X_train = train_matrix
+    X_test = test_matrix
+    y_train2 = train_data['review_score']
+    y_test2 = test_data['review_score']
+
+    lr2.fit(X_train, y_train2)
+    print(lr2)
+    """ Generate the predictions for the test dataset"""
+    predictions2 = lr2.predict(X_test)
+    test_data['predictions_rating'] = predictions2
+    print(test_data[['review_score', 'predictions_rating']].head(30))
+
+    test_data['match_rating'] = (
+            test_data['review_score'] == test_data['predictions_rating'])
+    print("Prediction Accuracy:")
+    print(sum(test_data['match_rating']) / len(test_data))
+
+runTextPredictions(new_books_rating)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
